@@ -54,8 +54,8 @@ data = [
         For Example, 
         ```shell script
            python attention_main.py \
-               --word_to_vec wv_models/code \
-               --train_file data/code_train.json \
+               --word_to_vec wv_models/demo_wv \
+               --train_file data/demo_train.json \
                --model_path models/demo_model.bin \
                --job train
         ```
@@ -70,9 +70,9 @@ data = [
        For example,
        ```shell script
            python attention_main.py \
-             --word_to_vec wv_models/code \
-             --test_file data/code_test.json \
+             --word_to_vec wv_models/demo_wv \
+             --test_file data/demo_test.json \
              --model_path models/demo_model.bin \
-             --test_output_path data/test_output.json
+             --test_output_path data/demo_test_output.json
         ```
    3. `train_and_generate`: For both Training and Generating. 
