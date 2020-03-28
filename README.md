@@ -25,7 +25,7 @@ data = [
     ```shell script
     python word2vec_train.py  \
         --data_path <List of json files in dataset> \
-        --save_model_path <Path where the Word2Vec model will be saved> \
+        --save_model_dirr <Directory where the Word2Vec model will be saved> \
         --model_name <Name of the Word2Vec model to be saves> \
         --epochs <Number of Epochs to train Word2Vec> \
         --embedding_size <Dimension of the Word2Vec word embedding> 
@@ -34,7 +34,7 @@ data = [
     ```shell script
     python word2vec_train.py  \
         --data_path data/demo_train.json data/demo_test.json \
-        --save_model_path wv_models \
+        --save_model_dir wv_models \
         --model_name demo_wv \
         --epochs 100 \
         --embedding_size 256
