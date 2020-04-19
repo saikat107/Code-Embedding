@@ -8,11 +8,15 @@ from code_data import DataSet, DataEntry
 from tqdm import tqdm
 from torch import nn
 import numpy as np
+from sklearn.metrics import accuracy_score, f1_score
 
 
-def train(model, loss_function, optimizer, dataset, num_epochs, cuda_device=-1):
+def train(model, loss_function, optimizer, dataset, num_epochs, cuda_device=-1, max_patience=5, dev_score_fn=f1_score):
     model.train()
     softmax = nn.LogSoftmax(dim=-1)
+    best_model = None
+    best_score = 0
+    patience_counter = 0
     for epoch in range(num_epochs):
         all_losses = []
         for sequence, mask, label in tqdm(dataset.get_all_batches()):
@@ -28,7 +32,22 @@ def train(model, loss_function, optimizer, dataset, num_epochs, cuda_device=-1):
             all_losses.append(batch_loss.cpu().item())
             batch_loss.backward()
             optimizer.step()
-        print('After Epoch %d\tTotal Loss : %f' % (epoch + 1, np.average(all_losses)))
+        pred, expect = predict(model=model, dataset=dataset, cuda_device=cuda_device, partition='dev')
+        score = dev_score_fn(expect, pred)
+        if score > best_score:
+            best_score = score
+            best_model = model.state_dict()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+        if patience_counter == max_patience:
+            if best_model is not None:
+                model.load_state_dict(best_model)
+                if cuda_device != -1:
+                    model.cuda(cuda_device)
+            break
+        print('After Epoch %d\tTotal Loss : %0.4f Dev score %0.4f Patience %d' %
+              (epoch + 1, np.average(all_losses), score, patience_counter))
 
 
 def generate_embeddings(model, dataset, output_path=None, cuda_device=-1):
@@ -55,6 +74,7 @@ def generate_embeddings(model, dataset, output_path=None, cuda_device=-1):
 def predict(model, dataset, cuda_device=-1, partition='test'):
     model.eval()
     outputs = []
+    softmax = nn.LogSoftmax(dim=-1)
     with torch.no_grad():
         if partition == 'test':
             examples = dataset.get_all_test_examples()
@@ -65,11 +85,14 @@ def predict(model, dataset, cuda_device=-1, partition='test'):
                 sequence = sequence.cuda()
                 mask = mask.cuda()
             output, _, _ = model(sequence, mask)
+            output = softmax(output)
             output = output.cpu().numpy()
             output_labels = np.argmax(output, axis=-1)
             for predicted, expected in zip(output_labels, label):
                 outputs.append([predicted, expected])
-    return np.asarray(outputs)
+    outputs = np.asarray(outputs)
+    return outputs[:, 0], outputs[:, 1]
+
 
 def main(args):
     inital_emb_path = args.word_to_vec
@@ -100,11 +123,16 @@ def main(args):
         train_data = json.load(open(args.train_file))
         for e in train_data:
             entry = DataEntry(dataset, e['code'], e['label'])
-            dataset.add_data_entry(entry, train_example=True)
+            dataset.add_data_entry(entry, part='train')
+        if args.dev_file is not None:
+            dev_data = json.load(open(args.dev_data))
+            for e in dev_data:
+                entry = DataEntry(dataset, e['code'], e['label'])
+                dataset.add_data_entry(entry, part='dev')
         test_data = json.load(open(args.test_file))
         for e in test_data:
             entry = DataEntry(dataset, e['code'], e['label'])
-            dataset.add_data_entry(entry, train_example=False)
+            dataset.add_data_entry(entry, part='test')
         dataset.init_data_set(batch_size=args.batch_size)
         if inital_emb_path is not None:
             emb_dim = dataset.initial_emddings.vector_size
@@ -127,6 +155,9 @@ def main(args):
         model_file.close()
         embeddings = generate_embeddings(
             model=model, dataset=dataset, output_path=args.test_output_path, cuda_device=args.cuda_device)
+        predictions, expectations = predict(
+            model=model, dataset=dataset, cuda_device=args.cuda_device)
+        print(accuracy_score(expectations, predictions), f1_score(expectations, predictions))
 
     elif args.job == 'generate':
         test_data = json.load(open(args.test_file))
@@ -160,6 +191,8 @@ if __name__ == '__main__':
                         help='Path of the Word to vector model (optional).', default=None, type=str)
     parser.add_argument('--train_file',
                         help='Path of the train json file (required).', type=str, default=None)
+    parser.add_argument('--dev_file',
+                        help='Path of the dev json file.', type=str, default=None)
     parser.add_argument('--test_file',
                         help='Path of the train json file (required, if job=\'generate\' or \'train_and_generate\').',
                         type=str)

@@ -63,23 +63,31 @@ class DataSet:
     def __init__(self, initial_embedding_path=None):
         self.train_entries = []
         self.test_entries = []
+        self.dev_entries = []
         self.vocab = None
         self.initial_embedding_present = (initial_embedding_path is not None)
         if self.initial_embedding_present:
             self.initial_emddings = Word2Vec.load(initial_embedding_path)
 
-    def add_data_entry(self, entry, train_example=True):
+    def add_data_entry(self, entry, part='train'):
         assert isinstance(entry, DataEntry)
         if self.initial_embedding_present:
             entry.wvmodel = self.initial_emddings
-        if train_example:
+        if part == 'train':
             self.train_entries.append(entry)
-        else:
+        elif part == 'test':
             self.test_entries.append(entry)
+        else:
+            self.dev_entries.append(entry)
 
     def init_data_set(self, batch_size=32):
+        if len(self.dev_entries) == 0:
+            self.dev_entries = self.train_entries[:int(0.1 * len(self.train_entries))]
+            self.train_entries = self.train_entries[int(0.1 * len(self.train_entries)):]
         self.build_vocabulary()
         for entry in self.train_entries:
+            entry.init_word_index()
+        for entry in self.dev_entries:
             entry.init_word_index()
         for entry in self.test_entries:
             entry.init_word_index()
@@ -98,6 +106,13 @@ class DataSet:
                     words[word] = 1
                 total_words += 1
         for entry in self.test_entries:
+            for word in entry.words:
+                if word in words.keys():
+                    words[word] += 1
+                else:
+                    words[word] = 1
+                total_words += 1
+        for entry in self.dev_entries:
             for word in entry.words:
                 if word in words.keys():
                     words[word] += 1
@@ -153,6 +168,9 @@ class DataSet:
     def get_test_dataset_by_ids(self, ids):
         return self.get_data_entries_by_id(self.test_entries, ids)
 
+    def get_dev_dataset_by_ids(self, ids):
+        return self.get_data_entries_by_id(self.dev_entries, ids)
+
     def initialize_batch(self):
         total = len(self.train_entries)
         indices = np.arange(0,total-1, 1)
@@ -173,6 +191,13 @@ class DataSet:
         for i in range(len(self.test_entries)):
             dataset[i] = [self.get_sentence(self.test_entries, i)]
             dataset[i].extend(list(self.get_test_dataset_by_ids([i])))
+        return dataset
+
+    def get_all_dev_examples(self):
+        dataset = [None] * len(self.dev_entries)
+        for i in range(len(self.dev_entries)):
+            dataset[i] = [self.get_sentence(self.dev_entries, i)]
+            dataset[i].extend(list(self.get_dev_dataset_by_ids([i])))
         return dataset
 
     def get_all_test_batches(self, batch_size=32):
