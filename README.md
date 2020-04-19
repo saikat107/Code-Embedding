@@ -25,7 +25,7 @@ data = [
     ```shell script
     python word2vec_train.py  \
         --data_path <List of json files in dataset> \
-        --save_model_path <Path where the Word2Vec model will be saved> \
+        --save_model_dirr <Directory where the Word2Vec model will be saved> \
         --model_name <Name of the Word2Vec model to be saves> \
         --epochs <Number of Epochs to train Word2Vec> \
         --embedding_size <Dimension of the Word2Vec word embedding> 
@@ -34,7 +34,7 @@ data = [
     ```shell script
     python word2vec_train.py  \
         --data_path data/demo_train.json data/demo_test.json \
-        --save_model_path wv_models \
+        --save_model_dir wv_models \
         --model_name demo_wv \
         --epochs 100 \
         --embedding_size 256
@@ -54,8 +54,8 @@ data = [
         For Example, 
         ```shell script
            python attention_main.py \
-               --word_to_vec wv_models/code \
-               --train_file data/code_train.json \
+               --word_to_vec wv_models/demo_wv \
+               --train_file data/demo_train.json \
                --model_path models/demo_model.bin \
                --job train
         ```
@@ -65,14 +65,16 @@ data = [
              --word_to_vec <Word2Vec path> \
              --test_file <Path of the test json file> \
              --model_path <Trained model path> \
-             --test_output_path <Path where the generated test embedding will be saved (Optional)>
+             --test_output_path <Path where the generated test embedding will be saved (Optional)> \
+             --job generate
         ```
        For example,
        ```shell script
            python attention_main.py \
-             --word_to_vec wv_models/code \
-             --test_file data/code_test.json \
+             --word_to_vec wv_models/demo_wv \
+             --test_file data/demo_test.json \
              --model_path models/demo_model.bin \
-             --test_output_path data/test_output.json
+             --test_output_path data/demo_test_output.json \
+             --job generate
         ```
    3. `train_and_generate`: For both Training and Generating. 
