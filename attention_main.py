@@ -52,6 +52,25 @@ def generate_embeddings(model, dataset, output_path=None, cuda_device=-1):
     return vectors
 
 
+def predict(model, dataset, cuda_device=-1, partition='test'):
+    model.eval()
+    outputs = []
+    with torch.no_grad():
+        if partition == 'test':
+            examples = dataset.get_all_test_examples()
+        else:
+            examples = dataset.get_all_dev_examples()
+        for sentence, sequence, mask, label in tqdm(examples):
+            if cuda_device != -1:
+                sequence = sequence.cuda()
+                mask = mask.cuda()
+            output, _, _ = model(sequence, mask)
+            output = output.cpu().numpy()
+            output_labels = np.argmax(output, axis=-1)
+            for predicted, expected in zip(output_labels, label):
+                outputs.append([predicted, expected])
+    return np.asarray(outputs)
+
 def main(args):
     inital_emb_path = args.word_to_vec
     dataset = DataSet(initial_embedding_path=inital_emb_path)
